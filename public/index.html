@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Edgen Fly 2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #1a1a1a;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #gameContainer {
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            max-height: 1000px;
+            position: relative;
+            touch-action: none;
+            display: none; /* Ẩn ban đầu */
+            justify-content: center;
+            align-items: center;
+        }
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border: 2px solid #fff;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            color: #ffffff;
+            padding: 4px 8px;
+            image-rendering: pixelated;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: #fff;
+            text-align: center;
+            display: none;
+        }
+        #restartBtn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #ff4444;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+            min-width: 44px;
+            min-height: 44px;
+        }
+        #restartBtn:hover {
+            background: #ff6666;
+        }
+        #credit {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Press Start 2P', monospace;
+            font-size: 12px;
+            color: white;
+            text-align: center;
+            pointer-events: none;
+        }
+        #instructionScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: #fff;
+            text-align: center;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 14px;
+            max-width: 400px;
+        }
+        #startBtn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #5a5a5a;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+            min-width: 44px;
+            min-height: 44px;
+        }
+        #startBtn:hover {
+            background: #e9a20a;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructionScreen">
+        <h2>How to Play</h2>
+        <p>Guide the Ironman through the spikes!</p>
+        <p>Press <strong>Space</strong> or <strong>Tap</strong> to fly.</p>
+        <p>Collect LayerEdge logo to increase your score.</p>
+        <p>Avoid the red spikes or it's game over!</p>
+        <button id="startBtn">Start</button>
+    </div>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui"></div>
+        <div id="gameOver">
+            <h2>Game Over</h2>
+            <p id="finalScore"></p>
+            <button id="restartBtn">Restart</button>
+        </div>
+    </div>
+    <div id="credit">Created by Jason</div>
+    <audio id="bg-music" loop>
+        <source src="assets/chiptune-medium-boss.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const ui = document.getElementById('ui');
+        const gameOverScreen = document.getElementById('gameOver');
+        const finalScoreText = document.getElementById('finalScore');
+        const restartBtn = document.getElementById('restartBtn');
+        const instructionScreen = document.getElementById('instructionScreen');
+        const startBtn = document.getElementById('startBtn');
+        const gameContainer = document.getElementById('gameContainer');
+
+        // Handle pixel ratio
+        const dpr = window.devicePixelRatio || 1;
+        let width = Math.min(window.innerWidth, 500);
+        let height = Math.min(window.innerHeight, 1000);
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.scale(dpr, dpr);
+
+        // Music setup
+        const bgMusic = document.getElementById('bg-music');
+        bgMusic.volume = 0.5; // Âm lượng vừa phải
+        let musicLoaded = false;
+
+        // Check if music loads successfully
+        bgMusic.oncanplaythrough = () => {
+            musicLoaded = true;
+            console.log("Music loaded successfully: chiptune-medium-boss.mp3");
+        };
+        bgMusic.onerror = () => {
+            console.error("Failed to load music: chiptune-medium-boss.mp3. Please check the file path and ensure the file exists.");
+            musicLoaded = false;
+        };
+
+        // Function to play music
+        function playMusic() {
+            if (musicLoaded && gameState === 'playing') {
+                bgMusic.play().catch(err => {
+                    console.error("Failed to play music:", err);
+                });
+            }
+        }
+
+        // Function to stop music
+        function stopMusic() {
+            if (musicLoaded) {
+                bgMusic.pause();
+                bgMusic.currentTime = 0; // Reset music to the beginning
+            }
+        }
+
+        // Game state
+        let bird = {
+            x: width / 2,
+            y: height / 2,
+            radius: 15,
+            velocityY: 0,
+            velocityX: 100,
+            rotation: 0,
+            gravity: 400,
+            lift: -200,
+            facingRight: true
+        };
+        let spikes = [];
+        let particles = [];
+        let score = 0;
+        let gameState = 'stopped'; // Ban đầu game chưa chạy
+        let sideSpikeCount = 2;
+        let lastWallCollision = false;
+        let spikeSpawnDelay = 0;
+        const spikeSpawnDelayTime = 0.5;
+
+        // Item state
+        let item = null;
+        const itemRadius = 10;
+        const itemSize = 50;
+
+        // Load item image
+        const itemImage = new Image();
+        const logoLayerEdge = new Image();
+        itemImage.src = 'assets/layeredge.png';
+        logoLayerEdge.src = 'assets/background.png';
+        let itemImageLoaded = false;
+
+        // Load bird image (iron3.gif)
+        const birdImage = new Image();
+        birdImage.src = 'assets/iron3.gif';
+        let birdImageLoaded = false;
+        const birdSize = 60;
+
+        // Function to start the game after both images are loaded
+        function startGame() {
+            if (itemImageLoaded && birdImageLoaded) {
+                // Hiển thị game và bắt đầu
+                instructionScreen.style.display = 'none';
+                gameContainer.style.display = 'flex';
+                init();
+                requestAnimationFrame(gameLoop);
+                // Phát nhạc ngay khi nhấn Start
+                playMusic();
+            }
+        }
+
+        // Wait for the item image to load
+        itemImage.onload = () => {
+            itemImageLoaded = true;
+            console.log("Image loaded successfully: assets/layeredge.png");
+            // Không gọi startGame() ở đây, chờ nhấn Start
+        };
+        itemImage.onerror = () => {
+            console.error("Failed to load image: assets/layeredge.png. Please check the file path and ensure the file exists.");
+            itemImageLoaded = true;
+        };
+
+        logoLayerEdge.onload = () => {
+            itemImageLoaded = true;
+            console.log("Image loaded successfully: assets/background.png");
+            // Không gọi startGame() ở đây, chờ nhấn Start
+        };
+        logoLayerEdge.onerror = () => {
+            console.error("Failed to load image: assets/background.png. Please check the file path and ensure the file exists.");
+            itemImageLoaded = true;
+        };
+
+        // Wait for the bird image to load
+        birdImage.onload = () => {
+            birdImageLoaded = true;
+            console.log("Bird image loaded successfully: assets/iron3.gif");
+            // Không gọi startGame() ở đây, chờ nhấn Start
+        };
+        birdImage.onerror = () => {
+            console.error("Failed to load bird image: assets/iron3.gif. Please check the file path and ensure the file exists.");
+            birdImageLoaded = true;
+        };
+
+        // Handle Start button click
+        startBtn.addEventListener('click', () => {
+            startGame();
+        });
+
+        // Spike properties
+        const spikeSize = 20;
+        const maxSideSpikes = 8;
+
+        // Initialize game
+        function init() {
+            bird.x = width / 2;
+            bird.y = height / 2;
+            bird.velocityY = 0;
+            bird.velocityX = 100;
+            bird.rotation = 0;
+            bird.facingRight = true;
+            score = 0;
+            gameState = 'playing';
+            gameOverScreen.style.display = 'none';
+            particles = [];
+            sideSpikeCount = 2;
+            lastWallCollision = false;
+            spikeSpawnDelay = 0;
+            item = null;
+
+            spikes = [];
+            generateSpikes();
+            spawnItem();
+
+            // Phát nhạc khi restart
+            playMusic();
+        }
+
+        // Generate spikes
+        function generateSpikes() {
+            spikes = [];
+            for (let x = 0; x < width; x += spikeSize) {
+                spikes.push({ x, y: 0, type: 'top' });
+                spikes.push({ x, y: height - spikeSize, type: 'bottom' });
+            }
+            updateSideSpikes();
+        }
+
+        // Update left and right spikes
+        function updateSideSpikes() {
+            spikes = spikes.filter(spike => spike.type !== 'left' && spike.type !== 'right');
+            const possiblePositions = Math.floor(height / spikeSize);
+            let leftPositions = [];
+            let rightPositions = [];
+
+            for (let y = 0; y < height; y += spikeSize) {
+                const birdY = bird.y;
+                const distanceY = Math.abs(y + spikeSize / 2 - birdY);
+                if (distanceY > bird.radius + spikeSize) {
+                    leftPositions.push(y);
+                    rightPositions.push(y);
+                }
+            }
+
+            leftPositions.sort(() => Math.random() - 0.5);
+            rightPositions.sort(() => Math.random() - 0.5);
+
+            for (let i = 0; i < Math.min(sideSpikeCount, leftPositions.length); i++) {
+                spikes.push({ x: 0, y: leftPositions[i], type: 'left' });
+            }
+            for (let i = 0; i < Math.min(sideSpikeCount, rightPositions.length); i++) {
+                spikes.push({ x: width - spikeSize, y: rightPositions[i], type: 'right' });
+            }
+        }
+
+        // Spawn a new item
+        function spawnItem() {
+            let x, y, tooClose;
+            do {
+                x = Math.random() * (width - 2 * itemRadius) + itemRadius;
+                y = Math.random() * (height - 2 * itemRadius) + itemRadius;
+                tooClose = false;
+
+                for (let spike of spikes) {
+                    let spikeX, spikeY;
+                    if (spike.type === 'top') {
+                        spikeX = spike.x + spikeSize / 2;
+                        spikeY = spike.y + spikeSize / 2;
+                    } else if (spike.type === 'bottom') {
+                        spikeX = spike.x + spikeSize / 2;
+                        spikeY = spike.y + spikeSize / 2;
+                    } else if (spike.type === 'left') {
+                        spikeX = spike.x + spikeSize / 2;
+                        spikeY = spike.y + spikeSize / 2;
+                    } else if (spike.type === 'right') {
+                        spikeX = spike.x + spikeSize / 2;
+                        spikeY = spike.y + spikeSize / 2;
+                    }
+                    const dx = x - spikeX;
+                    const dy = y - spikeY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < itemRadius + spikeSize) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+            } while (tooClose);
+
+            item = {
+                x: x,
+                y: y,
+                radius: itemRadius
+            };
+        }
+
+        // Update game
+        function update(delta) {
+            if (gameState !== 'playing') return;
+
+            bird.velocityY += bird.gravity * delta;
+            bird.y += bird.velocityY * delta;
+            bird.x += bird.velocityX * delta;
+
+            let wallCollision = false;
+            if (bird.x + bird.radius >= width) {
+                bird.x = width - bird.radius;
+                bird.velocityX = -Math.abs(bird.velocityX);
+                bird.facingRight = false;
+                wallCollision = true;
+            } else if (bird.x - bird.radius <= 0) {
+                bird.x = bird.radius;
+                bird.velocityX = Math.abs(bird.velocityX);
+                bird.facingRight = true;
+                wallCollision = true;
+            }
+
+            if (wallCollision && !lastWallCollision) {
+                spikeSpawnDelay = spikeSpawnDelayTime;
+                sideSpikeCount = Math.min(maxSideSpikes, sideSpikeCount + 1);
+            }
+
+            if (spikeSpawnDelay > 0) {
+                spikeSpawnDelay -= delta;
+                if (spikeSpawnDelay <= 0) {
+                    updateSideSpikes();
+                    spikeSpawnDelay = 0;
+                }
+            }
+
+            lastWallCollision = wallCollision;
+
+            bird.y = Math.max(bird.radius, Math.min(height - bird.radius, bird.y));
+            bird.rotation = Math.atan2(bird.velocityY, 100) * 0.5;
+
+            if (item) {
+                const dx = bird.x - item.x;
+                const dy = bird.y - item.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < bird.radius + item.radius) {
+                    score += 5;
+                    spawnItem();
+
+                    for (let i = 0; i < 10; i++) {
+                        particles.push({
+                            x: item.x,
+                            y: item.y,
+                            vx: (Math.random() - 0.5) * 100,
+                            vy: (Math.random() - 0.5) * 100,
+                            life: 0.5,
+                            alpha: 1
+                        });
+                    }
+                }
+            }
+
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => {
+                p.x += p.vx * delta;
+                p.y += p.vy * delta;
+                p.life -= delta;
+                p.alpha = p.life / 0.5;
+            });
+
+            if (checkCollision()) {
+                gameState = 'gameover';
+                gameOverScreen.style.display = 'block';
+                finalScoreText.textContent = `Final Score: ${Math.floor(score)}`;
+                
+                for (let i = 0; i < 20; i++) {
+                    particles.push({
+                        x: bird.x,
+                        y: bird.y,
+                        vx: (Math.random() - 0.5) * 200,
+                        vy: (Math.random() - 0.5) * 200,
+                        life: 0.5,
+                        alpha: 1
+                    });
+                }
+                stopMusic();
+            }
+        }
+
+        // Check collision between bird and spikes
+        function checkCollision() {
+            for (let spike of spikes) {
+                let spikePoints = [];
+                if (spike.type === 'top') {
+                    spikePoints = [
+                        { x: spike.x, y: spike.y },
+                        { x: spike.x + spikeSize, y: spike.y },
+                        { x: spike.x + spikeSize / 2, y: spike.y + spikeSize }
+                    ];
+                } else if (spike.type === 'bottom') {
+                    spikePoints = [
+                        { x: spike.x, y: spike.y + spikeSize },
+                        { x: spike.x + spikeSize, y: spike.y + spikeSize },
+                        { x: spike.x + spikeSize / 2, y: spike.y }
+                    ];
+                } else if (spike.type === 'left') {
+                    spikePoints = [
+                        { x: spike.x, y: spike.y },
+                        { x: spike.x, y: spike.y + spikeSize },
+                        { x: spike.x + spikeSize, y: spike.y + spikeSize / 2 }
+                    ];
+                } else if (spike.type === 'right') {
+                    spikePoints = [
+                        { x: spike.x + spikeSize, y: spike.y },
+                        { x: spike.x + spikeSize, y: spike.y + spikeSize },
+                        { x: spike.x, y: spike.y + spikeSize / 2 }
+                    ];
+                }
+
+                for (let i = 0; i < spikePoints.length; i++) {
+                    const p1 = spikePoints[i];
+                    const p2 = spikePoints[(i + 1) % 3];
+                    const p3 = spikePoints[(i + 2) % 3];
+
+                    const closest = closestPointOnTriangle(bird.x, bird.y, p1, p2, p3);
+                    const dx = bird.x - closest.x;
+                    const dy = bird.y - closest.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < bird.radius) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function closestPointOnTriangle(px, py, p1, p2, p3) {
+            let closest = { x: px, y: py };
+            let minDist = Infinity;
+
+            const edges = [
+                [p1, p2],
+                [p2, p3],
+                [p3, p1]
+            ];
+
+            for (let [a, b] of edges) {
+                const closestOnEdge = closestPointOnSegment(px, py, a.x, a.y, b.x, b.y);
+                const dx = px - closestOnEdge.x;
+                const dy = py - closestOnEdge.y;
+                const dist = dx * dx + dy * dy;
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = closestOnEdge;
+                }
+            }
+
+            return closest;
+        }
+
+        function closestPointOnSegment(px, py, ax, ay, bx, by) {
+            const abx = bx - ax;
+            const aby = by - ay;
+            const apx = px - ax;
+            const apy = py - ay;
+
+            const abLen = abx * abx + aby * aby;
+            let t = (apx * abx + apy * aby) / abLen;
+            t = Math.max(0, Math.min(1, t));
+
+            return {
+                x: ax + t * abx,
+                y: ay + t * aby
+            };
+        }
+
+        // Draw game
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw spikes
+            ctx.fillStyle = '#ff4444';
+            for (let spike of spikes) {
+                ctx.beginPath();
+                if (spike.type === 'top') {
+                    ctx.moveTo(spike.x, spike.y);
+                    ctx.lineTo(spike.x + spikeSize, spike.y);
+                    ctx.lineTo(spike.x + spikeSize / 2, spike.y + spikeSize);
+                } else if (spike.type === 'bottom') {
+                    ctx.moveTo(spike.x, spike.y + spikeSize);
+                    ctx.lineTo(spike.x + spikeSize, spike.y + spikeSize);
+                    ctx.lineTo(spike.x + spikeSize / 2, spike.y);
+                } else if (spike.type === 'left') {
+                    ctx.moveTo(spike.x, spike.y);
+                    ctx.lineTo(spike.x, spike.y + spikeSize);
+                    ctx.lineTo(spike.x + spikeSize, spike.y + spikeSize / 2);
+                } else if (spike.type === 'right') {
+                    ctx.moveTo(spike.x + spikeSize, spike.y);
+                    ctx.lineTo(spike.x + spikeSize, spike.y + spikeSize);
+                    ctx.lineTo(spike.x, spike.y + spikeSize / 2);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Draw item using image
+            if (item && itemImageLoaded) {
+                ctx.drawImage(
+                    itemImage,
+                    item.x - itemSize / 2,
+                    item.y - itemSize / 2,
+                    itemSize,
+                    itemSize
+                );
+            }
+
+            // Draw logoLayerEdge
+            if (itemImageLoaded) {
+                const imageWidth = 100;
+                const imageHeight = 50;
+                const centerX = (width - imageWidth) / 2;
+                const topY = 10;
+                ctx.drawImage(logoLayerEdge, centerX, topY, imageWidth, imageHeight);
+            }
+
+            // Draw bird using iron3.gif
+            ctx.save();
+            ctx.translate(bird.x, bird.y);
+            ctx.rotate(bird.rotation);
+            if (birdImageLoaded) {
+                if (!bird.facingRight) {
+                    ctx.scale(-1, 1);
+                }
+                ctx.drawImage(
+                    birdImage,
+                    -birdSize / 2,
+                    -birdSize / 2,
+                    birdSize,
+                    birdSize
+                );
+            } else {
+                ctx.fillStyle = '#00ff00';
+                ctx.beginPath();
+                ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // Draw particles
+            particles.forEach(p => {
+                ctx.fillStyle = `rgba(255, 0, 0, ${p.alpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw UI
+            ui.textContent = `Score: ${Math.floor(score)}`;
+        }
+
+        // Handle input
+        let isFlying = false;
+        function handleFlyStart() {
+            if (gameState === 'playing') {
+                isFlying = true;
+                bird.velocityY = bird.lift;
+            }
+        }
+
+        function handleFlyEnd() {
+            isFlying = false;
+        }
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleFlyStart();
+        });
+
+        canvas.addEventListener('touchend', handleFlyEnd);
+
+        canvas.addEventListener('mousedown', handleFlyStart);
+        canvas.addEventListener('mouseup', handleFlyEnd);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                handleFlyStart();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                handleFlyEnd();
+            }
+        });
+
+        restartBtn.addEventListener('click', () => {
+            init();
+        });
+
+        window.addEventListener('resize', () => {
+            width = Math.min(window.innerWidth, 500);
+            height = Math.min(window.innerHeight, 1000);
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            ctx.scale(dpr, dpr);
+            init();
+        });
+
+        // Game loop
+        let lastTime = performance.now();
+        function gameLoop(time) {
+            const delta = (time - lastTime) / 1000;
+            lastTime = time;
+
+            update(delta);
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
