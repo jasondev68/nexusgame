@@ -12,19 +12,18 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             background: #1a1a1a;
-            overflow: hidden;
+            overflow: auto;
             font-family: Arial, sans-serif;
         }
         #gameContainer {
             width: 100%;
             max-width: 500px;
             height: 100%;
-            max-height: 1000px;
             position: relative;
             touch-action: none;
-            display: none; /* Ẩn ban đầu */
+            display: none;
             justify-content: center;
             align-items: center;
         }
@@ -151,15 +150,10 @@
         const dpr = window.devicePixelRatio || 1;
         let width = Math.min(window.innerWidth, 500);
         let height = Math.min(window.innerHeight, 1000);
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
-        ctx.scale(dpr, dpr);
 
         // Music setup
         const bgMusic = document.getElementById('bg-music');
-        bgMusic.volume = 0.5; // Âm lượng vừa phải
+        bgMusic.volume = 0.5;
         let musicLoaded = false;
 
         // Check if music loads successfully
@@ -175,9 +169,12 @@
         // Function to play music
         function playMusic() {
             if (musicLoaded && gameState === 'playing') {
-                bgMusic.play().catch(err => {
-                    console.error("Failed to play music:", err);
-                });
+                const playPromise = bgMusic.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => {
+                        console.error("Failed to play music:", err);
+                    });
+                }
             }
         }
 
@@ -185,7 +182,7 @@
         function stopMusic() {
             if (musicLoaded) {
                 bgMusic.pause();
-                bgMusic.currentTime = 0; // Reset music to the beginning
+                bgMusic.currentTime = 0;
             }
         }
 
@@ -204,11 +201,12 @@
         let spikes = [];
         let particles = [];
         let score = 0;
-        let gameState = 'stopped'; // Ban đầu game chưa chạy
+        let gameState = 'stopped';
         let sideSpikeCount = 2;
         let lastWallCollision = false;
         let spikeSpawnDelay = 0;
         const spikeSpawnDelayTime = 0.5;
+        let collisionGracePeriod = 1; // 1 giây miễn nhiễm va chạm khi bắt đầu
 
         // Item state
         let item = null;
@@ -222,30 +220,45 @@
         logoLayerEdge.src = 'assets/background.png';
         let itemImageLoaded = false;
 
-        // Load bird image (iron3.gif)
+        // Load bird image
         const birdImage = new Image();
         birdImage.src = 'assets/iron3.gif';
         let birdImageLoaded = false;
         const birdSize = 60;
 
-        // Function to start the game after both images are loaded
+        // Resize canvas
+        function resizeCanvas() {
+            width = Math.min(window.innerWidth, 500);
+            height = Math.min(window.innerHeight, 1000);
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            ctx.scale(dpr, dpr);
+            gameContainer.style.height = `${height}px`;
+            gameContainer.style.maxHeight = 'none';
+        }
+
+        resizeCanvas();
+
+        // Function to start the game
         function startGame() {
             if (itemImageLoaded && birdImageLoaded) {
-                // Hiển thị game và bắt đầu
                 instructionScreen.style.display = 'none';
                 gameContainer.style.display = 'flex';
+                gameOverScreen.style.display = 'none';
+                gameState = 'playing';
+                collisionGracePeriod = 1;
                 init();
                 requestAnimationFrame(gameLoop);
-                // Phát nhạc ngay khi nhấn Start
                 playMusic();
             }
         }
 
-        // Wait for the item image to load
+        // Wait for images to load
         itemImage.onload = () => {
             itemImageLoaded = true;
             console.log("Image loaded successfully: assets/layeredge.png");
-            // Không gọi startGame() ở đây, chờ nhấn Start
         };
         itemImage.onerror = () => {
             console.error("Failed to load image: assets/layeredge.png. Please check the file path and ensure the file exists.");
@@ -255,18 +268,15 @@
         logoLayerEdge.onload = () => {
             itemImageLoaded = true;
             console.log("Image loaded successfully: assets/background.png");
-            // Không gọi startGame() ở đây, chờ nhấn Start
         };
         logoLayerEdge.onerror = () => {
             console.error("Failed to load image: assets/background.png. Please check the file path and ensure the file exists.");
             itemImageLoaded = true;
         };
 
-        // Wait for the bird image to load
         birdImage.onload = () => {
             birdImageLoaded = true;
             console.log("Bird image loaded successfully: assets/iron3.gif");
-            // Không gọi startGame() ở đây, chờ nhấn Start
         };
         birdImage.onerror = () => {
             console.error("Failed to load bird image: assets/iron3.gif. Please check the file path and ensure the file exists.");
@@ -297,13 +307,12 @@
             sideSpikeCount = 2;
             lastWallCollision = false;
             spikeSpawnDelay = 0;
+            collisionGracePeriod = 1;
             item = null;
 
             spikes = [];
             generateSpikes();
             spawnItem();
-
-            // Phát nhạc khi restart
             playMusic();
         }
 
@@ -317,7 +326,7 @@
             updateSideSpikes();
         }
 
-        // Update left and right spikes
+        // Update side spikes
         function updateSideSpikes() {
             spikes = spikes.filter(spike => spike.type !== 'left' && spike.type !== 'right');
             const possiblePositions = Math.floor(height / spikeSize);
@@ -452,11 +461,19 @@
                 p.alpha = p.life / 0.5;
             });
 
+            // Giảm thời gian miễn nhiễm
+            if (collisionGracePeriod > 0) {
+                collisionGracePeriod -= delta;
+                return;
+            }
+
+            // Kiểm tra va chạm
             if (checkCollision()) {
+                console.log("Collision detected with spike at:", bird.x, bird.y);
                 gameState = 'gameover';
                 gameOverScreen.style.display = 'block';
                 finalScoreText.textContent = `Final Score: ${Math.floor(score)}`;
-                
+
                 for (let i = 0; i < 20; i++) {
                     particles.push({
                         x: bird.x,
@@ -512,6 +529,7 @@
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
                     if (distance < bird.radius) {
+                        console.log(`Collision with ${spike.type} spike at (${spike.x}, ${spike.y})`);
                         return true;
                     }
                 }
@@ -659,11 +677,15 @@
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             handleFlyStart();
+            playMusic();
         });
 
         canvas.addEventListener('touchend', handleFlyEnd);
 
-        canvas.addEventListener('mousedown', handleFlyStart);
+        canvas.addEventListener('mousedown', (e) => {
+            handleFlyStart();
+            playMusic();
+        });
         canvas.addEventListener('mouseup', handleFlyEnd);
 
         document.addEventListener('keydown', (e) => {
@@ -683,13 +705,7 @@
         });
 
         window.addEventListener('resize', () => {
-            width = Math.min(window.innerWidth, 500);
-            height = Math.min(window.innerHeight, 1000);
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
-            canvas.style.width = `${width}px`;
-            canvas.style.height = `${height}px`;
-            ctx.scale(dpr, dpr);
+            resizeCanvas();
             init();
         });
 
