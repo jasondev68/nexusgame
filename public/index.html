@@ -115,9 +115,9 @@
 <body>
     <div id="instructionScreen">
         <h2>How to Play</h2>
-        <p>Guide the Ironman through the spikes!</p>
+        <p>Guide the NexusMan through the spikes!</p>
         <p>Press <strong>Space</strong> or <strong>Tap</strong> to fly.</p>
-        <p>Collect LayerEdge logo to increase your score.</p>
+        <p>Collect Nexus logo to increase your score.</p>
         <p>Avoid the red spikes or it's game over!</p>
         <button id="startBtn">Start</button>
     </div>
@@ -187,7 +187,7 @@
         }
 
         // Game state
-        let bird = {
+        let nexusman = {
             x: width / 2,
             y: height / 2,
             radius: 15,
@@ -215,16 +215,16 @@
 
         // Load item image
         const itemImage = new Image();
-        const logoLayerEdge = new Image();
-        itemImage.src = 'assets/layeredge.png';
-        logoLayerEdge.src = 'assets/background.png';
+        const logoNexus = new Image();
+        itemImage.src = 'assets/nexuslogo.png';
+        logoNexus.src = 'assets/background.png';
         let itemImageLoaded = false;
 
-        // Load bird image
-        const birdImage = new Image();
-        birdImage.src = 'assets/iron3.gif';
-        let birdImageLoaded = false;
-        const birdSize = 60;
+        // Load nexusman image
+        const nexusmanImage = new Image();
+        nexusmanImage.src = 'assets/nexuscharactor.png';
+        let nexusmanImageLoaded = false;
+        const nexusmanSize = 60;
 
         // Resize canvas
         function resizeCanvas() {
@@ -243,7 +243,7 @@
 
         // Function to start the game
         function startGame() {
-            if (itemImageLoaded && birdImageLoaded) {
+            if (itemImageLoaded && nexusmanImageLoaded) {
                 instructionScreen.style.display = 'none';
                 gameContainer.style.display = 'flex';
                 gameOverScreen.style.display = 'none';
@@ -258,29 +258,29 @@
         // Wait for images to load
         itemImage.onload = () => {
             itemImageLoaded = true;
-            console.log("Image loaded successfully: assets/layeredge.png");
+            console.log("Image loaded successfully: assets/nexuslogo.png");
         };
         itemImage.onerror = () => {
-            console.error("Failed to load image: assets/layeredge.png. Please check the file path and ensure the file exists.");
+            console.error("Failed to load image: assets/nexuslogo.png. Please check the file path and ensure the file exists.");
             itemImageLoaded = true;
         };
 
-        logoLayerEdge.onload = () => {
+        logoNexus.onload = () => {
             itemImageLoaded = true;
             console.log("Image loaded successfully: assets/background.png");
         };
-        logoLayerEdge.onerror = () => {
+        logoNexus.onerror = () => {
             console.error("Failed to load image: assets/background.png. Please check the file path and ensure the file exists.");
             itemImageLoaded = true;
         };
 
-        birdImage.onload = () => {
-            birdImageLoaded = true;
-            console.log("Bird image loaded successfully: assets/iron3.gif");
+        nexusmanImage.onload = () => {
+            nexusmanImageLoaded = true;
+            console.log("Nexusman image loaded successfully: assets/nexuscharactor.png");
         };
-        birdImage.onerror = () => {
-            console.error("Failed to load bird image: assets/iron3.gif. Please check the file path and ensure the file exists.");
-            birdImageLoaded = true;
+        nexusmanImage.onerror = () => {
+            console.error("Failed to load nexusman image: assets/nexuscharactor.png. Please check the file path and ensure the file exists.");
+            nexusmanImageLoaded = true;
         };
 
         // Handle Start button click
@@ -294,12 +294,12 @@
 
         // Initialize game
         function init() {
-            bird.x = width / 2;
-            bird.y = height / 2;
-            bird.velocityY = 0;
-            bird.velocityX = 100;
-            bird.rotation = 0;
-            bird.facingRight = true;
+            nexusman.x = width / 2;
+            nexusman.y = height / 2;
+            nexusman.velocityY = 0;
+            nexusman.velocityX = 100;
+            nexusman.rotation = 0;
+            nexusman.facingRight = true;
             score = 0;
             gameState = 'playing';
             gameOverScreen.style.display = 'none';
@@ -334,9 +334,9 @@
             let rightPositions = [];
 
             for (let y = 0; y < height; y += spikeSize) {
-                const birdY = bird.y;
-                const distanceY = Math.abs(y + spikeSize / 2 - birdY);
-                if (distanceY > bird.radius + spikeSize) {
+                const nexusmanY = nexusman.y;
+                const distanceY = Math.abs(y + spikeSize / 2 - nexusmanY);
+                if (distanceY > nexusman.radius + spikeSize) {
                     leftPositions.push(y);
                     rightPositions.push(y);
                 }
@@ -397,20 +397,20 @@
         function update(delta) {
             if (gameState !== 'playing') return;
 
-            bird.velocityY += bird.gravity * delta;
-            bird.y += bird.velocityY * delta;
-            bird.x += bird.velocityX * delta;
+            nexusman.velocityY += nexusman.gravity * delta;
+            nexusman.y += nexusman.velocityY * delta;
+            nexusman.x += nexusman.velocityX * delta;
 
             let wallCollision = false;
-            if (bird.x + bird.radius >= width) {
-                bird.x = width - bird.radius;
-                bird.velocityX = -Math.abs(bird.velocityX);
-                bird.facingRight = false;
+            if (nexusman.x + nexusman.radius >= width) {
+                nexusman.x = width - nexusman.radius;
+                nexusman.velocityX = -Math.abs(nexusman.velocityX);
+                nexusman.facingRight = false;
                 wallCollision = true;
-            } else if (bird.x - bird.radius <= 0) {
-                bird.x = bird.radius;
-                bird.velocityX = Math.abs(bird.velocityX);
-                bird.facingRight = true;
+            } else if (nexusman.x - nexusman.radius <= 0) {
+                nexusman.x = nexusman.radius;
+                nexusman.velocityX = Math.abs(nexusman.velocityX);
+                nexusman.facingRight = true;
                 wallCollision = true;
             }
 
@@ -429,14 +429,14 @@
 
             lastWallCollision = wallCollision;
 
-            bird.y = Math.max(bird.radius, Math.min(height - bird.radius, bird.y));
-            bird.rotation = Math.atan2(bird.velocityY, 100) * 0.5;
+            nexusman.y = Math.max(nexusman.radius, Math.min(height - nexusman.radius, nexusman.y));
+            nexusman.rotation = Math.atan2(nexusman.velocityY, 100) * 0.5;
 
             if (item) {
-                const dx = bird.x - item.x;
-                const dy = bird.y - item.y;
+                const dx = nexusman.x - item.x;
+                const dy = nexusman.y - item.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                if (distance < bird.radius + item.radius) {
+                if (distance < nexusman.radius + item.radius) {
                     score += 5;
                     spawnItem();
 
@@ -469,15 +469,15 @@
 
             // Kiểm tra va chạm
             if (checkCollision()) {
-                console.log("Collision detected with spike at:", bird.x, bird.y);
+                console.log("Collision detected with spike at:", nexusman.x, nexusman.y);
                 gameState = 'gameover';
                 gameOverScreen.style.display = 'block';
                 finalScoreText.textContent = `Final Score: ${Math.floor(score)}`;
 
                 for (let i = 0; i < 20; i++) {
                     particles.push({
-                        x: bird.x,
-                        y: bird.y,
+                        x: nexusman.x,
+                        y: nexusman.y,
                         vx: (Math.random() - 0.5) * 200,
                         vy: (Math.random() - 0.5) * 200,
                         life: 0.5,
@@ -488,7 +488,7 @@
             }
         }
 
-        // Check collision between bird and spikes
+        // Check collision between nexusman and spikes
         function checkCollision() {
             for (let spike of spikes) {
                 let spikePoints = [];
@@ -523,12 +523,12 @@
                     const p2 = spikePoints[(i + 1) % 3];
                     const p3 = spikePoints[(i + 2) % 3];
 
-                    const closest = closestPointOnTriangle(bird.x, bird.y, p1, p2, p3);
-                    const dx = bird.x - closest.x;
-                    const dy = bird.y - closest.y;
+                    const closest = closestPointOnTriangle(nexusman.x, nexusman.y, p1, p2, p3);
+                    const dx = nexusman.x - closest.x;
+                    const dy = nexusman.y - closest.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (distance < bird.radius) {
+                    if (distance < nexusman.radius) {
                         console.log(`Collision with ${spike.type} spike at (${spike.x}, ${spike.y})`);
                         return true;
                     }
@@ -617,34 +617,34 @@
                 );
             }
 
-            // Draw logoLayerEdge
+            // Draw logo Nexus
             if (itemImageLoaded) {
                 const imageWidth = 100;
                 const imageHeight = 50;
                 const centerX = (width - imageWidth) / 2;
                 const topY = 10;
-                ctx.drawImage(logoLayerEdge, centerX, topY, imageWidth, imageHeight);
+                ctx.drawImage(logoNexus, centerX, topY, imageWidth, imageHeight);
             }
 
-            // Draw bird using iron3.gif
+            // Draw nexusman using nexuscharactor.png
             ctx.save();
-            ctx.translate(bird.x, bird.y);
-            ctx.rotate(bird.rotation);
-            if (birdImageLoaded) {
-                if (!bird.facingRight) {
+            ctx.translate(nexusman.x, nexusman.y);
+            ctx.rotate(nexusman.rotation);
+            if (nexusmanImageLoaded) {
+                if (!nexusman.facingRight) {
                     ctx.scale(-1, 1);
                 }
                 ctx.drawImage(
-                    birdImage,
-                    -birdSize / 2,
-                    -birdSize / 2,
-                    birdSize,
-                    birdSize
+                    nexusmanImage,
+                    -nexusmanSize / 2,
+                    -nexusmanSize / 2,
+                    nexusmanSize,
+                    nexusmanSize
                 );
             } else {
                 ctx.fillStyle = '#00ff00';
                 ctx.beginPath();
-                ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                ctx.arc(0, 0, nexusman.radius, 0, Math.PI * 2);
                 ctx.fill();
             }
             ctx.restore();
@@ -666,7 +666,7 @@
         function handleFlyStart() {
             if (gameState === 'playing') {
                 isFlying = true;
-                bird.velocityY = bird.lift;
+                nexusman.velocityY = nexusman.lift;
             }
         }
 
