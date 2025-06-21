@@ -199,6 +199,7 @@
             facingRight: true
         };
         let spikes = [];
+        let boom = [];
         let particles = [];
         let score = 0;
         let gameState = 'stopped';
@@ -207,6 +208,9 @@
         let spikeSpawnDelay = 0;
         const spikeSpawnDelayTime = 0.5;
         let collisionGracePeriod = 1; // 1 giây miễn nhiễm va chạm khi bắt đầu
+        let fallingSpikeSpawnDelay = 2; // Thời gian chờ giữa các lần tạo gai rơi (giây)
+        const fallingSpikeSpeed = 100; // Tốc độ rơi của gai
+        let maxFallingSpikes = 1; // Số lượng gai rơi tối đa, tăng theo điểm số
 
         // Item state
         let item = null;
@@ -308,6 +312,8 @@
             lastWallCollision = false;
             spikeSpawnDelay = 0;
             collisionGracePeriod = 1;
+            fallingSpikeSpawnDelay = 2;
+            maxFallingSpikes = 1; // Khởi tạo với 1 gai rơi
             item = null;
 
             spikes = [];
@@ -319,9 +325,16 @@
         // Generate spikes
         function generateSpikes() {
             spikes = [];
+            // Gai trên và dưới
             for (let x = 0; x < width; x += spikeSize) {
                 spikes.push({ x, y: 0, type: 'top' });
                 spikes.push({ x, y: height - spikeSize, type: 'bottom' });
+            }
+            // Gai rơi (tạo ngẫu nhiên dựa trên maxFallingSpikes)
+            const fallingSpikeCount = Math.min(maxFallingSpikes, Math.floor(Math.random() * (maxFallingSpikes + 1))); // 0 đến maxFallingSpikes
+            for (let i = 0; i < fallingSpikeCount; i++) {
+                const x = Math.random() * (width - spikeSize);
+                spikes.push({ x, y: 0, type: 'falling', velocityY: fallingSpikeSpeed });
             }
             updateSideSpikes();
         }
@@ -373,6 +386,9 @@
                         spikeX = spike.x + spikeSize / 2;
                         spikeY = spike.y + spikeSize / 2;
                     } else if (spike.type === 'right') {
+                        spikeX = spike.x + spikeSize / 2;
+                        spikeY = spike.y + spikeSize / 2;
+                    } else if (spike.type === 'falling') {
                         spikeX = spike.x + spikeSize / 2;
                         spikeY = spike.y + spikeSize / 2;
                     }
@@ -428,6 +444,31 @@
             }
 
             lastWallCollision = wallCollision;
+
+            // Cập nhật số lượng gai rơi dựa trên điểm số
+            maxFallingSpikes = Math.min(6, 1 + Math.floor(score / 15)); // Tăng 1 gai mỗi 15 điểm, tối đa 6 gai
+
+            // Cập nhật gai rơi
+            fallingSpikeSpawnDelay -= delta;
+            if (fallingSpikeSpawnDelay <= 0) {
+                const currentFallingSpikes = spikes.filter(spike => spike.type === 'falling').length;
+                if (currentFallingSpikes < maxFallingSpikes) {
+                    const x = Math.random() * (width - spikeSize);
+                    spikes.push({ x, y: 0, type: 'falling', velocityY: fallingSpikeSpeed });
+                }
+                fallingSpikeSpawnDelay = Math.random() * 2 + 1; // Tạo lại sau 1-3 giây
+            }
+
+            spikes.forEach(spike => {
+                if (spike.type === 'falling') {
+                    spike.y += spike.velocityY * delta;
+                    // Xóa gai rơi khi chạm đáy
+                    if (spike.y > height) {
+                        spike.y = 0;
+                        spike.x = Math.random() * (width - spikeSize);
+                    }
+                }
+            });
 
             nexusman.y = Math.max(nexusman.radius, Math.min(height - nexusman.radius, nexusman.y));
             nexusman.rotation = Math.atan2(nexusman.velocityY, 100) * 0.5;
@@ -516,6 +557,12 @@
                         { x: spike.x + spikeSize, y: spike.y + spikeSize },
                         { x: spike.x, y: spike.y + spikeSize / 2 }
                     ];
+                } else if (spike.type === 'falling') {
+                    spikePoints = [
+                        { x: spike.x, y: spike.y },
+                        { x: spike.x + spikeSize, y: spike.y },
+                        { x: spike.x + spikeSize / 2, y: spike.y + spikeSize }
+                    ];
                 }
 
                 for (let i = 0; i < spikePoints.length; i++) {
@@ -601,6 +648,11 @@
                     ctx.moveTo(spike.x + spikeSize, spike.y);
                     ctx.lineTo(spike.x + spikeSize, spike.y + spikeSize);
                     ctx.lineTo(spike.x, spike.y + spikeSize / 2);
+                } else if (spike.type === 'falling') {
+                    // Gai rơi hình tam giác hướng xuống
+                    ctx.moveTo(spike.x, spike.y);
+                    ctx.lineTo(spike.x + spikeSize, spike.y);
+                    ctx.lineTo(spike.x + spikeSize / 2, spike.y + spikeSize);
                 }
                 ctx.closePath();
                 ctx.fill();
